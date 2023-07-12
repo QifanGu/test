@@ -1,44 +1,26 @@
 # test
 
-function saveCsvAttachmentsToDriveAndSheets() {
-  var searchQuery = 'has:attachment filename:csv'; // 附件筛选条件，只提取 CSV 文件
-  var folderName = 'Gmail CSV Attachments'; // 存储附件的文件夹名称
-  var sheetName = 'CSV Data'; // Google Sheets 中的工作表名称
+function mergeCsvFilesToSheet() {
+  var folderName = 'Gmail CSV Attachments'; // Google Drive 中的文件夹名称
+  var sheetName = 'Merged CSV'; // 要合并数据的 Google Sheets 工作表名称
 
-  var threads = GmailApp.search(searchQuery);
-  var folder, isFolderExist;
-  var attachmentsCount = 0;
+  var folder = DriveApp.getFoldersByName(folderName).next(); // 获取文件夹
+  var files = folder.getFilesByType(MimeType.CSV); // 获取文件夹中的 CSV 文件
 
-  for (var i = 0; i < threads.length; i++) {
-    var messages = threads[i].getMessages();
-    for (var j = 0; j < messages.length; j++) {
-      var attachments = messages[j].getAttachments();
-      for (var k = 0; k < attachments.length; k++) {
-        var attachment = attachments[k];
-        if (attachment.getContentType() === 'text/csv') { // 只处理 CSV 文件类型
-          if (!isFolderExist) {
-            folder = DriveApp.createFolder(folderName);
-            isFolderExist = true;
-          }
-          var csvData = attachment.getDataAsString(); // 获取 CSV 文件内容
-          var sheet = createSheetWithData(sheetName, csvData); // 创建 Google Sheets 并写入数据
-          var sheetFile = DriveApp.getFileById(sheet.getId()); // 获取 Sheets 文件
-          var file = folder.createFile(sheetFile.getBlob()); // 将 Sheets 文件保存到 Drive
-          attachmentsCount++;
-        }
-      }
-    }
+  var mergedData = [];
+  while (files.hasNext()) {
+    var file = files.next();
+    var csvData = file.getBlob().getDataAsString();
+    var parsedData = Utilities.Csv.parse(csvData); // 解析 CSV 数据为二维数组
+    mergedData = mergedData.concat(parsedData); // 合并数据
   }
 
-  Logger.log(attachmentsCount + ' CSV attachments saved to Google Drive and Sheets');
-}
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet(); // 获取当前活动的 Google Sheets 文件
+  var sheet = spreadsheet.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(sheetName); // 如果工作表不存在，则创建新的工作表
+  }
 
-function createSheetWithData(sheetName, csvData) {
-  var spreadsheet = SpreadsheetApp.create(sheetName); // 创建新的 Google Sheets
-  var sheet = spreadsheet.getActiveSheet();
-  var data = Utilities.Csv.parse(csvData); // 解析 CSV 数据为二维数组
-  var rows = data.length;
-  var columns = data[0].length;
-  sheet.getRange(1, 1, rows, columns).setValues(data); // 将数据写入 Sheets
-  return spreadsheet;
+  sheet.clear(); // 清空工作表中的现有数据
+  sheet.getRange(1, 1, mergedData.length, mergedData[0].length).setValues(mergedData); // 将合并的数据写入工作表
 }
