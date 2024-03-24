@@ -15,5 +15,4 @@
     <td class="column2">数据2</td>
     <td class="column3">数据3</td>
   </tr>
-  <!-- 更多行 -->
 </table>
